@@ -8,10 +8,25 @@ library(jpeg)
 # command line input path
 args <- commandArgs(trailingOnly = TRUE)
 pathString <- args[1]
+outputFileName <- args[2]
+
+# print(outputFileName)
+
+isJPG <- grepl(".jpg", pathString)
+isPNG <- grepl(".png", pathString)
+
+print(pathString)
 
 # load image file
-workimage <- readJPEG(pathString)
+if(isJPG) {
+  workimage <- readJPEG(pathString)
+  outputFileName <- gsub(".jpg", "plot.png", outputFileName)
+} else if(isPNG) {
+  workimage <- readPNG(pathString)
+  outputFileName <- gsub(".png", "plot.png", outputFileName)
+}
 
+print(outputFileName)
 
 
 # parse pixel information from image file
@@ -25,7 +40,6 @@ dataset <- data.frame("Blue" = as.numeric(BlueArray),"Red" = as.numeric(RedArray
 
 
 # Filter more pixels based on HSV values
-
 # Create HSV values for respective RGB
 HSV <- rgb2hsv(dataset$Red, dataset$Green, dataset$Blue, maxColorValue = 1)
 
@@ -62,10 +76,9 @@ plot <- ggtern(dataset, aes(Blue,Red,Green)) + geom_point(alpha = 0.15, shape = 
     geom_segment(data = lines, aes(x, y, z, xend = xend, yend = yend, zend = zend),
                 color = 'black', size = 1) + theme_rgbw() + theme_hidegrid()
 
-outputFileName <- gsub(".jpg", "plot.png",pathString)
 
 # save output file
-ggsave(plot, filename=outputFileName ,width=7, height=7, path ="output/sequencePlot")
+ggsave(plot, filename= outputFileName, width=7, height=7, dpi = 250, path ="output")
 
     
 

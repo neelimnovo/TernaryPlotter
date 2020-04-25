@@ -8,6 +8,7 @@ library(jpeg)
 args <- commandArgs(trailingOnly = TRUE)
 pathString <- args[1]
 imageName <- args[2]
+outputPath <- args[3]
 
 isJPG <- grepl(".jpg", imageName)
 isPNG <- grepl(".png", imageName)
@@ -56,7 +57,7 @@ dataset <- subset(dataset, Saturation > 0.1)
 dataset <- subset(dataset, Value > 0.5)
 
 # Create magnitude columne
-dataset$Magnitude <- apply(dataset[,c(1:3)], 1, sum)
+dataset$Magnitude <- apply(dataset[, 1:3], 1, sum)
 
 # sort dataset by magnitude
 dataset <- dataset[order(-dataset$Magnitude),c(1,2,3,7)]
@@ -94,7 +95,7 @@ if(isPNG) {
 
 
 # save output file
-ggsave(plot, filename=outputFileName ,width=7, height=7, path ="output/sequencePlot")
+ggsave(plot, filename=outputFileName ,width=7, height=7, dpi = 200, path = outputPath)
 
     
 

@@ -2,9 +2,9 @@ package main;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Scanner;
-
 
 
 public class main {
@@ -13,11 +13,11 @@ public class main {
     private static String INPUT_FILE_NAME;
 
     public static final String[] SUPPORTED_EXTENSIONS = new String[]{"jpg", "png"};
-    public static String VIDEO_FRAMES_DIRECTORY = "C:\\Users\\User\\IdeaProjects\\TernaryPlotter\\input\\sequenceImages";
+    public static String VIDEO_FRAMES_DIRECTORY = "input\\sequenceImages";
+    public static String MULTIPLE_IMAGES_DIRECTORY = "input\\multipleImages";
     private static final String FFMPEGCommand1 = "";
     private static final String FFMPEGCommand2 = "";
     private static final String FFMPEGCommand3 = "";
-    private static final String FFMPEGCommand4 = "ffmpeg -r 60 -f image2 -s 1080x1080 -i output\\sequencePlot\\video%03d.png -vcodec libx264 -crf 25 -loglevel quiet -pix_fmt yuv420p output.mp4";
 
     private static FolderReader folderReader;
 
@@ -36,7 +36,7 @@ public class main {
                 plotVideo();
             } else if (firstChoice.equals(("test"))) {
                 testMethod();
-            }else if (firstChoice.equals("exit")) {
+            } else if (firstChoice.equals("exit")) {
                 System.out.println("Goodbye!");
                 System.exit(1);
             } else {
@@ -93,7 +93,7 @@ public class main {
 
         Process p = null;
         try {
-            p = Runtime.getRuntime().exec(FFMPEGCommand4);
+            p = Runtime.getRuntime().exec("");
 
             BufferedReader stdInput = new BufferedReader(new
                     InputStreamReader(p.getInputStream()));
@@ -124,37 +124,41 @@ public class main {
     private static void plotSingleImage() {
         System.out.println("Enter name of image file");
         INPUT_FILE_NAME = scanner.nextLine();
+        String runTimeCommand = "Rscript SinglePlot.R " + "input/" + INPUT_FILE_NAME + " " + INPUT_FILE_NAME;
 
         try {
-            Process child = Runtime.getRuntime().exec("Rscript SinglePlot.R " + INPUT_FILE_NAME);
+            Process child = Runtime.getRuntime().exec(runTimeCommand);
             int code = child.waitFor();
+            InputStream childError = child.getErrorStream();
             switch (code) {
                 case 0:
                     //normal termination, everything is fine
+                    System.out.println("Done! \n \n");
                     break;
                 case 1:
-                    //Read the error stream then
+                    // Read the error stream then
+                    for (int i = 0; i < childError.available(); i++) {
+                        System.out.println("" + childError.read());
+                    }
                     throw new RuntimeException();
-
             }
-
         } catch (Exception e) {
-            System.out.println("Error in Rscript");
+            System.out.println("Error in Rscript SinglePlot");
         }
     }
 
 
     private static void plotMultipleImages() {
-        folderReader = new FolderReader(VIDEO_FRAMES_DIRECTORY, new String[]{"jpg", "png"});
-        folderReader.StoreImageNamesInArray();
+        folderReader = new FolderReader(MULTIPLE_IMAGES_DIRECTORY, new String[]{"jpg", "png"});
+        folderReader.storeImageNamesInArray();
 
         long startTime = System.currentTimeMillis();
-        multiThreadPlot();
+        // MultiThreader.directoryPath = MULTIPLE_IMAGES_DIRECTORY;
+        multiThreadPlot(MULTIPLE_IMAGES_DIRECTORY);
         long endTime = System.currentTimeMillis();
 
         System.out.println("Plot renders complete");
         System.out.println("Took " + (endTime-startTime)/1000 + "s to plot");
-
 
         System.out.println("Done! \n \n");
 
@@ -167,47 +171,49 @@ public class main {
         System.out.println("Enter name of video file");
         INPUT_FILE_NAME = scanner.nextLine();
 
-        // Convert video to image frames using ffmpeg
         try {
-            System.out.println("this runs");
-            Process videotoimagep = Runtime.getRuntime().exec("ffmpeg -i input\\" + INPUT_FILE_NAME + " -s 960x540 input\\sequenceImages\\video%04d.png -loglevel quiet");
-            System.out.println("this runs");
-            int exitValue1 = videotoimagep.waitFor();
-//            if(exitValue1 == 0){
-//                System.out.println("Video converted to image frames");
-//            } else {
-//                printRuntimeError(videotoimagep);
-//            }
 
-            //TODO implement and use downscaling
+            //TODO Manually convert video to image frames and downscale
+            //videoToImages(INPUT_FILE_NAME, "output\\sequencePlot\\","png", 0);
             //ImageDownscaler.DownscaleAndCreateImage(inputImagePath);
 
-            folderReader = new FolderReader(VIDEO_FRAMES_DIRECTORY, new String[]{"jpg", "png"});
-            folderReader.StoreImageNamesInArray();
+            // Convert video to image frames using ffmpeg
+            String inputCommand = "ffmpeg -i input\\" + INPUT_FILE_NAME
+                                    + " -s 960x540 input\\sequenceImages\\video%05d.jpg";
+            Process videoToImageProcess = Runtime.getRuntime().exec(inputCommand);
+            int exitValue1 = videoToImageProcess.waitFor();
+            if(exitValue1 == 0) {
+                System.out.println("Plot image frames converted to video");
+            } else {
+                printRuntimeError(videoToImageProcess);
+            }
 
-            multiThreadPlot();
+            folderReader = new FolderReader(VIDEO_FRAMES_DIRECTORY, new String[]{"jpg", "png"});
+            folderReader.storeImageNamesInArray();
+            multiThreadPlot(VIDEO_FRAMES_DIRECTORY);
             System.out.println("Plotting complete");
 
             folderReader.clearWorkFolder();
 
-
             try {
-                Process image2videoProcess = Runtime.getRuntime().exec(FFMPEGCommand4);
-                int exitValue2 = image2videoProcess.waitFor();
+                String OUTPUT_FILE_NAME = "output\\" + INPUT_FILE_NAME.substring(0, INPUT_FILE_NAME.indexOf(".")) + ".mp4";
+                String FFMPEGImageFramesToVideo = "ffmpeg -r 60 -f image2 -s 1080x1080 -i output\\sequencePlot\\video%05d.png -vcodec libx264 -crf 25 -loglevel quiet -pix_fmt yuv420p "
+                        + OUTPUT_FILE_NAME;
+                Process imageToVideoProcess = Runtime.getRuntime().exec(FFMPEGImageFramesToVideo);
+                int exitValue2 = imageToVideoProcess.waitFor();
                 if(exitValue2 == 0) {
                     System.out.println("Plot image frames converted to video");
                 } else {
-                    printRuntimeError(image2videoProcess);
+                    printRuntimeError(imageToVideoProcess);
                 }
 
             } catch (Exception e) {
-                System.out.println("Error in converting video to image frames");
+                System.out.println("Error in converting plot frames to video");
             }
             System.out.println("Done!");
 
-
         } catch (Exception e) {
-            System.out.println("Error in converting video to image frames");
+            System.out.println("Error in converting input video to image frames");
         }
 
 
@@ -225,34 +231,11 @@ public class main {
         }
     }
 
-    private static class MultiThreader implements Runnable{
-        public static int loopSize;
-        public int loopStart;
-        public int loopEnd;
-
-        @Override
-        public void run() {
-            for(int i = loopStart; i < loopEnd; i = i + 4) {
-
-                String imagePath = "input\\sequenceImages\\" + folderReader.imageNameArray.get(i);
-                String command = "Rscript GroupPlot.R" + " " + imagePath + " " + folderReader.imageNameArray.get(i);
-                Process p = null;
-                try {
-                    p = Runtime.getRuntime().exec(command);
-                    p.waitFor();
-                } catch (Exception e) {
-                    System.out.println("One of the threads died");
-                }
-            }
-
-        }
-
-    }
-
 
     //Multiple Thread implementation for 4 threads starts here
-    private static void multiThreadPlot() {
+    private static void multiThreadPlot(String directory) {
         MultiThreader.loopSize = folderReader.imageNameArray.size();
+        MultiThreader.directoryPath = directory;
 
         MultiThreader m1 = new MultiThreader();
         MultiThreader m2 = new MultiThreader();
@@ -273,6 +256,8 @@ public class main {
         Thread t3 = new Thread(m3);
         Thread t4 = new Thread(m4);
 
+        // System.out.println("this runs");
+
         t1.start();
         t2.start();
         t3.start();
@@ -285,6 +270,38 @@ public class main {
             t4.join();
         } catch (InterruptedException e) {
             System.out.println("Problem with join");
+        }
+    }
+
+    private static class MultiThreader implements Runnable{
+        public static int loopSize;
+        public static String directoryPath;
+        public int loopStart;
+        public int loopEnd;
+        public String outputPath;
+
+        @Override
+        public void run() {
+
+            if (directoryPath.equals("input\\multipleImages")) {
+                outputPath = "output\\multiPlot";
+            } else if (directoryPath.equals("input\\sequenceImages")) {
+                outputPath = "output\\sequencePlot";
+            }
+
+            for(int i = loopStart; i < loopEnd; i = i + 4) {
+
+                String imagePath = directoryPath + "\\" + folderReader.imageNameArray.get(i);
+                String command = "Rscript GroupPlot.R" + " " + imagePath + " " + folderReader.imageNameArray.get(i)
+                                    + " " + outputPath;
+                Process p = null;
+                try {
+                    p = Runtime.getRuntime().exec(command);
+                    p.waitFor();
+                } catch (Exception e) {
+                    System.out.println("One of the threads died");
+                }
+            }
         }
     }
 

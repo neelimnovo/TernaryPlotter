@@ -21,7 +21,7 @@ public class FolderReader {
     }
 
     //EFFECTS: Stores images in folder as buffered images in array
-    public void StoreImageNamesInArray() {
+    public void storeImageNamesInArray() {
         if (inputImageDirectory.isDirectory()) {
             for (final File f : inputImageDirectory.listFiles(IMAGE_FILTER)) {
 
