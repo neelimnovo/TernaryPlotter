@@ -1,5 +1,4 @@
 # load required libraries
-
 library(png)
 library(ggtern)
 library(jpeg)
@@ -8,16 +7,17 @@ library(jpeg)
 # command line input path
 args <- commandArgs(trailingOnly = TRUE)
 pathString <- args[1]
-outputFileName <- args[2]
+imageName <- args[2]
+filterFlag <- as.numeric(args[3])
 
-# print(outputFileName)
+print(imageName)
 
-isJPG <- grepl(".jpg", pathString)
-isPNG <- grepl(".png", pathString)
+isJPG <- grepl(".jpg", imageName)
+isPNG <- grepl(".png", imageName)
 
-print(pathString)
 
 # load image file
+outputFileName <- 0
 if(isJPG) {
   workimage <- readJPEG(pathString)
   outputFileName <- gsub(".jpg", "plot.png", outputFileName)
@@ -25,8 +25,6 @@ if(isJPG) {
   workimage <- readPNG(pathString)
   outputFileName <- gsub(".png", "plot.png", outputFileName)
 }
-
-print(outputFileName)
 
 
 # parse pixel information from image file
@@ -38,36 +36,55 @@ BlueArray <- workimage[,,3]
 # create dataframe from pixel information
 dataset <- data.frame("Blue" = as.numeric(BlueArray),"Red" = as.numeric(RedArray), "Green" = as.numeric(GreenArray))
 
+# clear memory
+rm(workimage,RedArray,GreenArray,BlueArray)
 
 # Filter more pixels based on HSV values
 # Create HSV values for respective RGB
-HSV <- rgb2hsv(dataset$Red, dataset$Green, dataset$Blue, maxColorValue = 1)
+if (filterFlag == 1) {
+  HSV <- rgb2hsv(dataset$Red, dataset$Green, dataset$Blue, maxColorValue = 1)
 
+  # Keep all H values
+  dataset$Hue <- HSV[1,]
+  dataset$Saturation <- HSV[2,]
+  dataset$Value <- HSV[3,]
 
-# Keep all H values
-dataset$Hue <- HSV[1,]
-dataset$Saturation <- HSV[2,]
-dataset$Value <- HSV[3,]
+  # clear memory
+  rm(HSV)
 
+  # Keep S > 10
+  dataset <- subset(dataset, Saturation > 0.1)
 
-# Keep S > 10
-dataset <- subset(dataset, Saturation > 0.1)
+  # Keep V > 40
+  dataset <- subset(dataset, Value > 0.5)
 
-# Keep V > 40
-dataset <- subset(dataset, Value > 0.5)
+  # Create magnitude column
+  dataset$Magnitude <- apply(dataset[, 1:3], 1, sum)
+
+  # sort dataset by magnitude
+  dataset <- dataset[order(-dataset$Magnitude),c(1,2,3,7)]
+} else {
+  # Create magnitude column
+  dataset$Magnitude <- apply(dataset[, 1:3], 1, sum)
+
+  # sort dataset by magnitude
+  dataset <- dataset[order(-dataset$Magnitude),c(1,2,3,4)]
+}
 
 
 # Create Color Column
 dataset$Color <- rgb(dataset$Red, dataset$Green, dataset$Blue)
 
+# # optimise dataset
+# dataset <- dataset[c(1,2,3,5)]
 
 # axes separator lines for the ternary plot
 lines <- data.frame(x = c(0.5, 0, 0.5), 
-                        y = c(0.5, 0.5, 0), 
-                        z = c(0, 0.5, 0.5), 
-                        xend = c(1, 1, 1)/3, 
-                        yend = c(1, 1, 1)/3, 
-                        zend = c(1, 1, 1)/3)
+                    y = c(0.5, 0.5, 0),
+                    z = c(0, 0.5, 0.5),
+                    xend = c(1, 1, 1)/3,
+                    yend = c(1, 1, 1)/3,
+                    zend = c(1, 1, 1)/3)
 
 
 
@@ -76,9 +93,16 @@ plot <- ggtern(dataset, aes(Blue,Red,Green)) + geom_point(alpha = 0.15, shape = 
     geom_segment(data = lines, aes(x, y, z, xend = xend, yend = yend, zend = zend),
                 color = 'black', size = 1) + theme_rgbw() + theme_hidegrid()
 
+if(isJPG) {
+  outputFileName <- gsub(".jpg", ".png", imageName)
+}
+
+if(isPNG) {
+  outputFileName <- imageName
+}
 
 # save output file
-ggsave(plot, filename= outputFileName, width=7, height=7, dpi = 250, path ="output")
+ggsave(plot, filename= outputFileName, width=7, height=7, dpi = 200, path ="output")
 
     
 

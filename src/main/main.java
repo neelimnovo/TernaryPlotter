@@ -2,7 +2,6 @@ package main;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Scanner;
 
@@ -15,9 +14,6 @@ public class main {
     public static final String[] SUPPORTED_EXTENSIONS = new String[]{"jpg", "png"};
     public static String VIDEO_FRAMES_DIRECTORY = "input\\sequenceImages";
     public static String MULTIPLE_IMAGES_DIRECTORY = "input\\multipleImages";
-    private static final String FFMPEGCommand1 = "";
-    private static final String FFMPEGCommand2 = "";
-    private static final String FFMPEGCommand3 = "";
 
     private static FolderReader folderReader;
 
@@ -25,7 +21,7 @@ public class main {
         while (true) {
             scanner = new Scanner(System.in);
 
-            System.out.println("Plot from \n1)image \n2)multiple images \n3)video?");
+            System.out.println("Plot from \n1) single image \n2) multiple images \n3) combined images \n4) or video?");
             String firstChoice = scanner.nextLine();
 
             if (firstChoice.equals("1")) {
@@ -33,6 +29,8 @@ public class main {
             } else if (firstChoice.equals("2")) {
                 plotMultipleImages();
             } else if (firstChoice.equals("3")) {
+              plotCombinedImage();
+            } else if (firstChoice.equals("4")) {
                 plotVideo();
             } else if (firstChoice.equals(("test"))) {
                 testMethod();
@@ -124,23 +122,18 @@ public class main {
     private static void plotSingleImage() {
         System.out.println("Enter name of image file");
         INPUT_FILE_NAME = scanner.nextLine();
-        String runTimeCommand = "Rscript SinglePlot.R " + "input/" + INPUT_FILE_NAME + " " + INPUT_FILE_NAME;
+        String runTimeCommand = "Rscript SinglePlot.R " + "input\\" + INPUT_FILE_NAME + " " + INPUT_FILE_NAME + " " + 0;
 
         try {
+            long startTime = System.currentTimeMillis();
             Process child = Runtime.getRuntime().exec(runTimeCommand);
             int code = child.waitFor();
-            InputStream childError = child.getErrorStream();
-            switch (code) {
-                case 0:
-                    //normal termination, everything is fine
-                    System.out.println("Done! \n \n");
-                    break;
-                case 1:
-                    // Read the error stream then
-                    for (int i = 0; i < childError.available(); i++) {
-                        System.out.println("" + childError.read());
-                    }
-                    throw new RuntimeException();
+            if (code == 0) {
+                long endTime = System.currentTimeMillis();
+                printRenderTime(startTime, endTime);
+                System.out.println("Done! \n \n");
+            } else {
+                printRuntimeError(child);
             }
         } catch (Exception e) {
             System.out.println("Error in Rscript SinglePlot");
@@ -153,18 +146,27 @@ public class main {
         folderReader.storeImageNamesInArray();
 
         long startTime = System.currentTimeMillis();
-        // MultiThreader.directoryPath = MULTIPLE_IMAGES_DIRECTORY;
         multiThreadPlot(MULTIPLE_IMAGES_DIRECTORY);
         long endTime = System.currentTimeMillis();
 
-        System.out.println("Plot renders complete");
-        System.out.println("Took " + (endTime-startTime)/1000 + "s to plot");
+        printRenderTime(startTime, endTime);
 
         System.out.println("Done! \n \n");
-
     }
 
-
+    private static void plotCombinedImage() {
+        try {
+            Process combinedPlotProcess = Runtime.getRuntime().exec("Rscript CombinedPlot.R");
+            int exitValue = combinedPlotProcess.waitFor();
+            if (exitValue == 0) {
+                System.out.println("Success!");
+            } else {
+                printRuntimeError(combinedPlotProcess);
+            }
+        } catch (Exception e) {
+            System.out.println("Could not run the R script");
+        }
+    }
 
 
     private static void plotVideo() {
@@ -178,19 +180,25 @@ public class main {
             //ImageDownscaler.DownscaleAndCreateImage(inputImagePath);
 
             // Convert video to image frames using ffmpeg
+
+
             String inputCommand = "ffmpeg -i input\\" + INPUT_FILE_NAME
                                     + " -s 960x540 input\\sequenceImages\\video%05d.jpg";
+
             Process videoToImageProcess = Runtime.getRuntime().exec(inputCommand);
             int exitValue1 = videoToImageProcess.waitFor();
             if(exitValue1 == 0) {
-                System.out.println("Plot image frames converted to video");
+                System.out.println("Video converted to individual frames");
             } else {
                 printRuntimeError(videoToImageProcess);
             }
 
             folderReader = new FolderReader(VIDEO_FRAMES_DIRECTORY, new String[]{"jpg", "png"});
             folderReader.storeImageNamesInArray();
+            long startTime = System.currentTimeMillis();
             multiThreadPlot(VIDEO_FRAMES_DIRECTORY);
+            long endTime = System.currentTimeMillis();
+            printRenderTime(startTime, endTime);
             System.out.println("Plotting complete");
 
             folderReader.clearWorkFolder();
@@ -218,6 +226,11 @@ public class main {
 
 
 
+    }
+
+    private static void printRenderTime(long startTime, long endTime) {
+        System.out.println("Plot renders complete");
+        System.out.println("Took " + (endTime-startTime)/1000 + "s to plot");
     }
 
     private static void printRuntimeError(Process video2imageProcess) {
