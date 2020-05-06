@@ -1,6 +1,6 @@
 # TernaryPlotter
 
-This is a Java CLI application that creates ternary plots from images or video using R scripts.
+This is a Java CLI application that creates ternary plots from images or video using R scripts with the aid of the ggtern package.
 
 Requirements - FFMPEG Codec, Rtools, Java
 
